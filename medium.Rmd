@@ -1,0 +1,208 @@
+---
+title: "Tidy_Tuesday_Medium"
+output: html_notebook
+---
+
+# Packages
+```{r, warning=FALSE}
+library(tidyverse)
+library(tidytext)
+library(SnowballC)
+library(gridExtra)
+library(scales)
+library(lubridate)
+library(gghighlight)
+library(ggthemes)
+data("stop_words")
+
+medium <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018-12-04/medium_datasci.csv")
+```
+```{r}
+glimpse(medium)
+```
+
+# gather the tags into 1 column
+```{r}
+medium %>%
+  select(14:21) %>%
+  gather(tag, Count) %>%
+  filter(Count >=1) %>%
+  select(tag)
+
+# can't because multiple tags, not a true dummy variable
+```
+
+## TITLE WORDS
+# popular words in titles with stemming
+```{r}
+top_terms <- function(df, selectYear, ngrams) {
+  df %>%
+  mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
+  filter(year(date) == selectYear) %>%
+    unnest_tokens(word,title,token = 'ngrams', n = ngrams, to_lower = TRUE, drop = TRUE) %>%
+      drop_na(word) %>%
+      anti_join(stop_words) %>%
+      mutate(word = wordStem(word, language="english")) %>%
+      filter(!str_detect(word, "[:digit:]")) %>%
+      filter(!str_detect(word, 'na')) %>%
+      filter(!str_detect(word, 'de')) %>%
+  group_by(word) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(100)
+}
+
+title_df_2017 <- top_terms(medium, 2017, 1) %>%
+  bind_rows(top_terms(medium, 2017, 2))
+
+title_df_2018  <- top_terms(medium, 2018, 1) %>%
+  bind_rows(top_terms(medium, 2018, 2))
+
+title_df_2017
+title_df_2018
+```
+
+## WHAT GENERATES CLAPS?
+# popular words that generate claps
+```{r}
+clap_top_terms <- function(df, selectYear, ngrams){
+  df %>%
+  mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
+  filter(year(date) == selectYear) %>%
+  unnest_tokens(word,title,token = 'ngrams', n = ngrams, to_lower = TRUE, drop = TRUE) %>%
+      drop_na(word) %>%
+      anti_join(stop_words) %>%
+      mutate(word = wordStem(word, language="english")) %>%
+      filter(!str_detect(word, "[:digit:]")) %>%
+      filter(!str_detect(word, 'na')) %>%
+      filter(!str_detect(word, 'de')) %>%
+    group_by(word) %>%
+   summarize(total_claps = sum(claps)) %>%
+  arrange(desc(total_claps)) %>%
+  head(100)
+}
+clap_df_2017 <- clap_top_terms(medium, 2017, 1) %>%
+  bind_rows(clap_top_terms(medium, 2017, 2))
+
+clap_df_2018 <- clap_top_terms(medium, 2018, 1) %>%
+  bind_rows(clap_top_terms(medium, 2018, 2))
+
+clap_df_2017
+clap_df_2018
+```
+
+
+## FINDING EFFECTIVENESS IN POPULAR WORDS FROM TITLES
+# final merge
+```{r}
+title_df_all %>%
+  inner_join(clap_df_all) %>%
+  mutate(avg_claps_generated = round(total_claps/n,2)) %>%
+  arrange(desc(avg_claps_generated)) %>%
+  head(50)
+
+title_df_2017 %>%
+  inner_join(clap_df_2017) %>%
+  mutate(avg_claps_generated = round(total_claps/n,2)) %>%
+  arrange(desc(avg_claps_generated)) %>%
+  head(50)
+
+title_df_2018 %>%
+  inner_join(clap_df_2018) %>%
+  mutate(avg_claps_generated = round(total_claps/n,2)) %>%
+  arrange(desc(avg_claps_generated)) %>%
+  head(50)
+```
+
+# raw count of popular words
+```{r}
+df1 <- title_df_2017 %>%
+  inner_join(clap_df_2017) %>%
+  mutate(avg_claps_generated = round(total_claps/n,2)) %>%
+  arrange(desc(avg_claps_generated)) %>%
+  head(25) %>%
+    ggplot(aes(x=reorder(word, avg_claps_generated), y=avg_claps_generated, fill = avg_claps_generated)) +
+    geom_col() +
+  coord_flip() +
+  
+  scale_fill_gradient(low = "grey80", high = "grey20") +
+  scale_y_reverse() +
+  scale_x_discrete(position = "top") +
+  theme_light() +
+  
+  labs(x= "", y = "Avg. Claps Generated",
+       colour = NULL,
+       title = "Effective Words from 2017 & 2018",
+       subtitle = "Determined using total claps by the volume of use",
+       caption = "@datajake | Source: Medium.com | #TidyTuesday") +
+  
+  theme(panel.border = element_blank(),
+        text = element_text(colour = "gray60", family = "wqy-microhei"),
+        legend.position = "none",
+        axis.title.x = element_text(colour="grey20", face = "bold"),
+        axis.title.y = element_text(colour="grey20", face = "italic"),
+        plot.title = element_text(size=15, colour = "gray20", face = "bold"),
+        plot.caption = element_text(size = 10, colour = "white", face = "italic")) 
+
+df2<- title_df_2018 %>%
+  inner_join(clap_df_2018) %>%
+  mutate(avg_claps_generated = round(total_claps/n,2)) %>%
+  arrange(desc(avg_claps_generated)) %>%
+  head(25) %>%
+    ggplot(aes(x=reorder(word, avg_claps_generated), y=avg_claps_generated, fill = avg_claps_generated)) +
+    geom_col() +
+  coord_flip() +
+  
+  scale_x_discrete(position = "bottom") +
+  scale_fill_gradient(low = "grey80", high = "grey20") +
+  theme_light() +
+  
+  labs(x= "", y = "Avg. Claps Generated",
+       colour = NULL,
+       title = "2018",
+       subtitle = "2018",
+       caption = "@datajake | Source: Medium.com | #TidyTuesday") +
+  
+  theme(panel.border = element_blank(),
+        text = element_text(colour = "gray60", family = "wqy-microhei"),
+        legend.position = "none",
+        axis.title.x = element_text(colour="grey20", face = "bold"),
+        axis.title.y = element_text(colour="grey20", face = "italic"),
+        plot.title = element_text(size=15, colour = "white", face = "bold"),
+        plot.subtitle = element_text(size=15, colour = "white", face = "bold"),
+        plot.caption = element_text(size = 10, colour = "gray60", face = "italic"))
+
+grid.arrange(df1,df2, nrow=1)
+```
+# Difference in Years
+```{r}
+title_df_2017 %>%
+  inner_join(clap_df_2017) %>%
+  bind_rows(
+    title_df_2018 %>%
+  inner_join(clap_df_2018), .id="year"
+  ) %>%
+  mutate(avg_claps_generated = round(total_claps/n,2)) %>% 
+  group_by(word) %>%
+  mutate(diff=max(avg_claps_generated) - min(avg_claps_generated)) %>%
+  filter(diff > 50) %>%
+ggplot(aes(x = year, y = avg_claps_generated, col = word, group = word, fill = word, label = word)) +
+  stat_summary(fun.y = print, geom = "line") +
+  geom_text(check_overlap = T, hjust = "outward", fontface = "bold", size = 3) +
+  scale_x_discrete(labels=c("2017", "2018")) +
+labs(x= "", y = "Avg. Claps Generated",
+       colour = NULL,
+       title = "Highlighting Greater Shifts in Popular Words",
+       subtitle = "Words with large differences in average claps (greater than 50) are shown",
+       caption = "@datajake | Source: Medium.com | #TidyTuesday") +
+  theme_calc() +
+  theme(panel.border = element_blank(),
+        text = element_text(colour = "gray60", family = "wqy-microhei"),
+        legend.position = "none",
+        axis.title.x = element_text(colour="grey20", face = "bold"),
+        axis.title.y = element_text(colour="grey20", face = "italic"),
+        plot.title = element_text(size=15, colour = "gray20", face = "bold"),
+        plot.caption = element_text(size = 10, colour = "gray60", face = "italic"),
+        plot.margin = margin(t=10, r=20, b=10, l=10, unit = "pt")) 
+
+```
