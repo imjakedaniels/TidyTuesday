@@ -13,6 +13,8 @@ library(scales)
 library(lubridate)
 library(gghighlight)
 library(ggthemes)
+library(showtext)
+showtext_auto() 
 data("stop_words")
 ```
 
@@ -42,7 +44,27 @@ medium %>%
 ```{r}
 # function
 top_terms <- function(df, selectYear, ngrams) {
-  df %>%
+  if(ngrams == 2) {
+  final_df <- df %>%
+  mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
+  filter(year(date) == selectYear) %>%
+    unnest_tokens(word,title,token = 'ngrams', n = ngrams, to_lower = TRUE, drop = TRUE) %>%
+    separate(word,c('word1','word2'),sep = ' ') %>%
+      filter(!word1 %in% stop_words$word) %>%
+      filter(!word2 %in% stop_words$word) %>%
+      drop_na(word1) %>%
+      drop_na(word2) %>%
+      mutate(word_stem1 = wordStem(word1, language="english"),
+             word_stem2 = wordStem(word2, language="english")) %>%
+      unite(word, word_stem1, word_stem2, sep = ' ') %>%
+      filter(!str_detect(word, "[:digit:]")) %>%
+  group_by(word) %>%
+  count() %>%
+  arrange(desc(n)) %>%
+  head(100)
+ 
+  } else {
+  final_df <- df %>%
   mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
   filter(year(date) == selectYear) %>%
     unnest_tokens(word,title,token = 'ngrams', n = ngrams, to_lower = TRUE, drop = TRUE) %>%
@@ -56,6 +78,8 @@ top_terms <- function(df, selectYear, ngrams) {
   count() %>%
   arrange(desc(n)) %>%
   head(100)
+  }
+  return(final_df)
 }
 
 # merging
@@ -75,7 +99,26 @@ title_df_2018
 ```{r}
 # function
 clap_top_terms <- function(df, selectYear, ngrams){
-  df %>%
+  if(ngrams==2){
+  final_df <- df %>%
+  mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
+  filter(year(date) == selectYear) %>%
+      unnest_tokens(word,title,token = 'ngrams', n = ngrams, to_lower = TRUE, drop = TRUE) %>%
+    separate(word,c('word1','word2'),sep = ' ') %>%
+      filter(!word1 %in% stop_words$word) %>%
+      filter(!word2 %in% stop_words$word) %>%
+      drop_na(word1) %>%
+      drop_na(word2) %>%
+      mutate(word_stem1 = wordStem(word1, language="english"),
+             word_stem2 = wordStem(word2, language="english")) %>%
+      unite(word, word_stem1, word_stem2, sep = ' ') %>%
+      filter(!str_detect(word, "[:digit:]")) %>%
+    group_by(word) %>%
+   summarize(total_claps = sum(claps)) %>%
+  arrange(desc(total_claps)) %>%
+  head(100)
+  } else {
+  final_df <- df %>%
   mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
   filter(year(date) == selectYear) %>%
   unnest_tokens(word,title,token = 'ngrams', n = ngrams, to_lower = TRUE, drop = TRUE) %>%
@@ -89,6 +132,8 @@ clap_top_terms <- function(df, selectYear, ngrams){
    summarize(total_claps = sum(claps)) %>%
   arrange(desc(total_claps)) %>%
   head(100)
+  }
+  return(final_df)
 }
 
 # merging
