@@ -2,7 +2,6 @@
 * Twitter: @datajake
 * LinkedIn: linkedin.com/imjakedaniels
 
-Packages
 ```
 library(tidyverse)
 library(tidytext)
