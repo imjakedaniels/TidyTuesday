@@ -62,7 +62,6 @@ top_terms <- function(df, selectYear, ngrams) {
   count() %>%
   arrange(desc(n)) %>%
   head(100)
- 
   } else {
   final_df <- df %>%
   mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
