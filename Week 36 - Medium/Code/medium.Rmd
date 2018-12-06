@@ -95,12 +95,6 @@ clap_df_2018
 ## FINDING EFFECTIVENESS IN POPULAR WORDS FROM TITLES
 # final merge
 ```{r}
-title_df_all %>%
-  inner_join(clap_df_all) %>%
-  mutate(avg_claps_generated = round(total_claps/n,2)) %>%
-  arrange(desc(avg_claps_generated)) %>%
-  head(50)
-
 title_df_2017 %>%
   inner_join(clap_df_2017) %>%
   mutate(avg_claps_generated = round(total_claps/n,2)) %>%
