@@ -15,6 +15,6 @@ library(ggthemes)
 ```
 
 ## Week 36: Medium
-![Big Differences](https://raw.githubusercontent.com/imjakedaniels/TidyTuesday/master/final_shifts.jpeg?raw=TRUE)
+![Big Differences](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/final_shifts.jpeg?raw=TRUE)
 
-![Successful Terms](https://github.com/imjakedaniels/TidyTuesday/blob/master/effective_words_mixed.jpeg?raw=TRUE)
+![Successful Terms](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/effective_words_mixed.jpeg?raw=TRUE)
