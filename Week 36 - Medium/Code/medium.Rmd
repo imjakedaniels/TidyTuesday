@@ -14,14 +14,19 @@ library(lubridate)
 library(gghighlight)
 library(ggthemes)
 data("stop_words")
+```
 
+# Load
+```{r}
 medium <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018-12-04/medium_datasci.csv")
 ```
+
+# Glimpse
 ```{r}
 glimpse(medium)
 ```
 
-# gather the tags into 1 column
+# Gather tags into 1 column
 ```{r}
 medium %>%
   select(14:21) %>%
@@ -35,6 +40,7 @@ medium %>%
 ## TITLE WORDS
 # popular words in titles with stemming
 ```{r}
+# function
 top_terms <- function(df, selectYear, ngrams) {
   df %>%
   mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
@@ -52,12 +58,14 @@ top_terms <- function(df, selectYear, ngrams) {
   head(100)
 }
 
+# merging
 title_df_2017 <- top_terms(medium, 2017, 1) %>%
   bind_rows(top_terms(medium, 2017, 2))
 
 title_df_2018  <- top_terms(medium, 2018, 1) %>%
   bind_rows(top_terms(medium, 2018, 2))
 
+# view
 title_df_2017
 title_df_2018
 ```
@@ -65,6 +73,7 @@ title_df_2018
 ## WHAT GENERATES CLAPS?
 # popular words that generate claps
 ```{r}
+# function
 clap_top_terms <- function(df, selectYear, ngrams){
   df %>%
   mutate(date = ymd(paste0(year,"-",month,"-",day))) %>%
@@ -81,19 +90,20 @@ clap_top_terms <- function(df, selectYear, ngrams){
   arrange(desc(total_claps)) %>%
   head(100)
 }
+
+# merging
 clap_df_2017 <- clap_top_terms(medium, 2017, 1) %>%
   bind_rows(clap_top_terms(medium, 2017, 2))
 
 clap_df_2018 <- clap_top_terms(medium, 2018, 1) %>%
   bind_rows(clap_top_terms(medium, 2018, 2))
 
+# view
 clap_df_2017
 clap_df_2018
 ```
 
-
-## FINDING EFFECTIVENESS IN POPULAR WORDS FROM TITLES
-# final merge
+# final merge (inner_join)
 ```{r}
 title_df_2017 %>%
   inner_join(clap_df_2017) %>%
@@ -108,7 +118,8 @@ title_df_2018 %>%
   head(50)
 ```
 
-# raw count of popular words
+## VISUALIZATION
+# side-by-side comparison of popular words 
 ```{r}
 df1 <- title_df_2017 %>%
   inner_join(clap_df_2017) %>%
@@ -168,7 +179,8 @@ df2<- title_df_2018 %>%
 
 grid.arrange(df1,df2, nrow=1)
 ```
-# Difference in Years
+
+# big difference in Years
 ```{r}
 title_df_2017 %>%
   inner_join(clap_df_2017) %>%
