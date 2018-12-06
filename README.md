@@ -1,6 +1,6 @@
 # Jake's #TidyTuesday
-* Twitter: @datajake
-* LinkedIn: linkedin.com/imjakedaniels
+* Twitter: [@datajake](www.twitter.come/datajake)
+* LinkedIn: [imjakedaniels](www.linkedin.com/imjakedaniels)
 
 ```
 library(tidyverse)
