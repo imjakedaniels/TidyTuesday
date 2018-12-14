@@ -414,10 +414,15 @@ top_word_cors %>%
   geom_node_text(aes(label = name), repel = T) +
   theme_void() +
   labs(title="What's hot and what's not in Medium article titles?", 
-       subtitle="Colour shows the geometric mean of # of claps on articles with this word in the title", color = "Claps (mean)", size = "Occurences") +
+       subtitle="Colour shows the geometric mean of # of claps on articles with this word in the title", color = "Avg. Claps", size = "Occurences") +
   scale_color_gradient2(low = "blue",
                         high = "red",
-                        midpoint = 10)
+                        midpoint = 10) +
+  theme(text = element_text(colour = "gray60", family = "wqy-microhei"),
+        plot.title = element_text(size=15, colour = "gray20", face = "bold"),
+        plot.caption = element_text(size = 10, colour = "gray60", face = "italic"),
+    plot.margin = margin(t=10, r=20, b=10, l=10, unit = "pt")) 
+
 ```
 ### predicting the number of claps based on title and tag - see how much the word contributes
 ```{r}
