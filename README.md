@@ -15,6 +15,8 @@ library(showtext)
 ```
 
 ## Week 36: Medium
+![Hot or Not](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/hot_not.png?raw=TRUE)
+
 ![Big Differences](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/final_shifts.jpeg?raw=TRUE)
 
 ![Successful terms](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/chart_bigrams.jpeg?raw=TRUE)
