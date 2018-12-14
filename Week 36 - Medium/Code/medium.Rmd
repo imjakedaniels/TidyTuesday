@@ -256,3 +256,241 @@ labs(x= "", y = "Avg. Claps Generated",
         plot.margin = margin(t=10, r=20, b=10, l=10, unit = "pt")) 
 
 ```
+
+# DataCritics articles
+```{r}
+medium %>%
+  filter(author == "DataCritics") %>%
+  View()
+```
+
+# drob's net  
+```{r}
+theme_set(theme_light())
+
+#cleaning
+medium %>%
+  summarize_at(vars(starts_with("tag_")), sum)
+
+medium_gathered <- medium %>%
+  gather(tag,value, starts_with("tag_")) %>%
+  mutate(tag = str_remove(tag, "tag_")) %>%
+  filter(value == 1)
+
+# counts by tag
+medium_gathered %>%
+  count(tag, sort = T)
+
+# claps
+medium_gathered %>%
+  group_by(tag) %>%
+  summarize(median_claps = median(claps)) %>%
+  arrange(desc(median_claps))
+
+# reading time visual
+medium %>%
+  mutate(reading_time = pmin(10, reading_time)) %>%
+  ggplot(aes(reading_time)) +
+  geom_histogram(binwidth = 0.5) +
+  scale_x_continuous(breaks = seq(2,10,2),
+                     labels = c(seq(2,8,2), "10+")) + 
+  labs(x="Typical Medium Reading Time")
+
+# average reading time
+medium_gathered %>%
+  group_by(tag) %>%
+  summarize(reading_time = mean(reading_time)) %>%
+  arrange(desc(reading_time))
+
+```
+
+### text mining
+```{r}
+library(tidytext)
+
+# cleaning
+medium_words <- medium %>%
+  filter(!is.na(title)) %>%
+  select(title, subtitle, year, reading_time, claps) %>%
+  unnest_tokens(word, title) %>%
+  anti_join(stop_words, by= "word") %>%
+  filter(!word %in% c("de", "en", "la","para")) %>%
+  filter(str_detect(word, "[a-z]"))
+
+# visual
+medium_words %>%
+  count(word, sort = T)  %>%
+  mutate(word = fct_reorder(word,n)) %>%
+  head(20) %>%
+  ggplot(aes(x= word,y= n)) +
+  geom_col() + 
+  coord_flip() +
+  labs(title = "Common words in Medium Post Titles")
+```
+
+```{r}
+# how many times does this word appear in dataset
+medium_words %>%
+  add_count(word) %>%
+  filter(n >= 500) %>%
+  count(word)
+
+# buzz words that suck
+medium_words %>%
+  add_count(word) %>%
+  filter(n >= 500) %>%
+  group_by(word) %>%
+  summarize(median_claps=  median(claps),
+            occurances = n()) %>%
+  arrange(median_claps)
+
+# geometric means distinguishes 1.0 from each other, since claps can be 0, we + 1 then -1
+tag_claps <- medium_words %>%
+  add_count(word) %>%
+  filter(n >= 500) %>%
+  group_by(word) %>%
+  summarize(median_claps=  median(claps),
+            geometric_mean_claps = exp(mean(log(claps + 1))) - 1,
+            occurences = n()) %>%
+  arrange(median_claps)
+
+# reworking medium words with TRANSMUTE and adding grouping row numbers
+medium_words <- medium %>%
+  filter(!is.na(title)) %>%
+  transmute(post_id = row_number(), title, subtitle, year, reading_time, claps) %>%
+  unnest_tokens(word, title) %>%
+  anti_join(stop_words, by= "word") %>%
+  filter(!word %in% c("de", "en", "la","para")) %>%
+  filter(str_detect(word, "[a-z]"))
+
+
+# tidytext chapter 4.2
+medium_words_filtered <- medium_words %>%
+  add_count(word) %>%
+  filter(n >= 250)
+
+
+# pairs of words by correlations
+library(widyr)
+
+top_word_cors <- medium_words_filtered %>%
+  select(post_id, word) %>%
+  pairwise_cor(word, post_id, sort=T) %>%
+  head(150)
+
+library(ggraph)
+library(igraph)
+
+# visual of clusters
+set.seed(2018)
+top_word_cors %>%
+  graph_from_data_frame() %>%
+  ggraph() +
+  geom_edge_link() + 
+  geom_node_point() +
+  geom_node_text(aes(label = name), repel = T) +
+  theme_void()
+
+
+# adding another dimension
+tag_claps <- medium_words_filtered %>%
+  add_count(word) %>%
+  group_by(word) %>%
+  summarize(median_claps = median(claps),
+            geometric_mean_claps = exp(mean(log(claps + 1))) - 1,
+            occurences = n()) %>%
+  arrange(desc(median_claps))
+
+vertices <- tag_claps %>%
+  filter(word %in% top_word_cors$item1 | word %in% top_word_cors$item2)
+
+# average claps earned
+top_word_cors %>%
+  graph_from_data_frame(vertices = vertices) %>%
+  ggraph() +
+  geom_edge_link() + 
+  geom_node_point(aes(size = occurences * 1.1)) +
+  geom_node_point(aes(size = occurences, color = geometric_mean_claps)) +
+  geom_node_text(aes(label = name), repel = T) +
+  theme_void() +
+  labs(title="What's hot and what's not in Medium article titles?", 
+       subtitle="Colour shows the geometric mean of # of claps on articles with this word in the title", color = "Claps (mean)", size = "Occurences") +
+  scale_color_gradient2(low = "blue",
+                        high = "red",
+                        midpoint = 10)
+```
+### predicting the number of claps based on title and tag - see how much the word contributes
+```{r}
+# turn this into a sparse matrix
+medium_words_filtered %>%
+  distinct(post_id, word, claps)
+
+
+post_word_matrix <- medium_words_filtered %>%
+  distinct(post_id, word, claps) %>%
+  cast_sparse(post_id, word)
+
+# 164 variables, 58000 rows
+dim(post_word_matrix)
+# some don't pop up
+rownames(post_word_matrix)
+
+
+# LASSO REGRESSION MODEL
+library(glmnet)
+
+# have to reclean this
+medium_words <- medium %>%
+  filter(!is.na(title)) %>%
+  select(title, subtitle, year, reading_time, claps) %>%
+  unnest_tokens(word, title) %>%
+  anti_join(stop_words, by= "word") %>%
+  filter(!word %in% c("de", "en", "la","para")) %>%
+  filter(str_detect(word, "[a-z]"))
+
+medium_processed <- medium %>%
+  select(-x1) %>%
+  mutate(post_id = row_number())
+
+medium_words <- medium_processed %>%
+  filter(!is.na(title)) %>%
+  select(post_id, title, subtitle, year, reading_time, claps) %>%
+  unnest_tokens(word, title) %>%
+  anti_join(stop_words, by= "word") %>%
+  filter(!word %in% c("de", "en", "la","para")) %>%
+  filter(str_detect(word, "[a-z]"))
+
+# matching rows to make the y 
+claps <- medium_processed$claps[match(rownames(post_word_matrix), medium_processed$post_id)]
+
+lasso_model <- cv.glmnet(post_word_matrix, log(claps + 1))
+
+```
+
+```{r}
+# as we decrease our penalty we approach a better MSE
+plot(lasso_model)
+
+library(broom) 
+# add coefficients as they appear by term
+tidy(lasso_model$glmnet.fit)
+
+# INFLUENCE
+# learning gets bigger and has positive influence, then hadoop has negative influence, then startup, then deep
+# can see negative influences and positive 
+tidy(lasso_model$glmnet.fit) %>%
+  filter(term %in% c("learning", "hadoop", "gdpr", "deep", "startup", "marketing")) %>%
+  ggplot(aes(x = lambda, y = estimate, colour = term)) +
+  geom_line() +
+  scale_x_log10()
+
+# can use lambda.min to use best lambda value for MSE, can see the top arre positive, bottom are negative
+tidy(lasso_model$glmnet.fit) %>%
+  filter(lambda == lasso_model$lambda.min) %>%
+  arrange(desc(estimate))
+```
+
+```{r}
+
+```
+
