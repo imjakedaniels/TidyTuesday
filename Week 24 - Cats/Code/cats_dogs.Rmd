@@ -9,7 +9,6 @@ library(tidyverse)
 library(tidytext)
 library(lubridate)
 library(ggthemes)
-install.packages('digest')
 library(digest)
 library(showtext)
 showtext_auto() 
@@ -23,11 +22,6 @@ cats_dogs <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytue
 ```{r}
 glimpse(cats_dogs)
 
-us <- c(left = -125, bottom = 25.75, right = -67, top = 49)
-map <- get_stamenmap(us, zoom = 5, maptype = "toner-lite")
-ggmap(map)
-
-GOOGLE_MAPS_KEY
 ```
 
 ```{r}
@@ -81,9 +75,9 @@ cats_dogs %>%
   filter(n_pet_households > 2000) %>%
   group_by(state) %>%
   mutate(check = paste0(round(value / n_pet_households ,2)*100, "%")) %>%
-  ggplot(aes(x=state,y=value, group = Species), ) +
+  ggplot(aes(x=state,y=value, group = Species)) +
     geom_col(aes(fill = Species), position = "dodge") +
-    geom_text(aes(label = check), na.rm = T, position = position_dodge(1), vjust = 1.5, family= "wqy-microhei") +
+    geom_text(aes(label = check), na.rm = T, position = position_dodge(1), size = 3, vjust = 1.5, family= "wqy-microhei") +
   scale_fill_manual(labels = c("Cats", "Dogs"),values = c("#4E79A7","#E15759")) + 
   theme_light() +
   
