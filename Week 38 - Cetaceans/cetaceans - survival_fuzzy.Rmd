@@ -81,7 +81,8 @@ cetaceans %>%
   filter(!is.na(birthYear), !is.na(statusDate)) %>%
   ggplot(aes(x=species, y=age)) +
   geom_boxplot() +
-  coord_flip()
+  coord_flip() +
+  xlab("")
 ```
 ```{r}
 # learning more about where cetaceans are Born/Captured, captured stopped in 1992
@@ -176,7 +177,8 @@ cetaceans_annotated %>%
   scale_y_continuous(labels = percent_format()) +
   theme_minimal() +
   labs(x="year",
-       title="Where Dolphins Born in Captivity Were From")
+       title="Where Dolphins Born in Captivity Were From",
+       subtite = "")
 ```
 
 ```{r}
@@ -230,7 +232,10 @@ tidy(model) %>%
   geom_ribbon(aes(ymin=conf.low, ymax = conf.high), alpha=.2) +
   scale_y_continuous(labels = percent_format()) +
   labs(y = "Estimated % of Survival",
-       x = "Time (in years)")
+       x = "Time (in years)") +
+  labs(title = "Expected Life of Dolphins",
+       subtitle = "Median life expectancy is 17 years") +
+  annotate("text", x=45, y=.75, label = "             n      events     median  \n 1388        932          17 ", fontface="bold")
 
 # can live as long as 55 years old
 
@@ -269,7 +274,9 @@ tidy(model) %>%
   geom_line() +
   geom_ribbon(aes(ymin=conf.low, ymax = conf.high), alpha=.2) +
   scale_y_continuous(labels = percent_format()) +
-  labs(y = "Estimated % of Survival")
+  labs(title = "Dolphin Survival By Acquisition",
+       subtitle = "Rescued Dolphins are statistically likelier (p=0.0021) to die earlier",
+       y = "Estimated % of Survival")
 
 # issue here, if we capture, they already are alive, we can only the observed dolphins die, rescued dolphins have the lowest rate of survival, the born seems to be the most realistic graph
 

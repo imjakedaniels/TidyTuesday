@@ -13,9 +13,16 @@ library(gghighlight)
 library(ggthemes)
 library(showtext)
 ```
+## Week 38: Dolphins
+
+![Spinogram - Acquisition Method Over Time](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2038%20-%20Cetaceans/dolphins_over_time.png?raw=TRUE)
+
+![Survival Analysis - Expected Life](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2038%20-%20Cetaceans/survival_curve_life.png?raw=TRUE)
+
+![Survival Analysis - Acquisition](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2038%20-%20Cetaceans/dolphin_acquisition.png?raw=TRUE)
 
 ## Week 36: Medium
-![Hot or Not](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/hot_not.png?raw=TRUE)
+![Hot or Not Chart](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/hot_not.png?raw=TRUE)
 
 ![Big Differences](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2036%20-%20Medium/final_shifts.jpeg?raw=TRUE)
 
