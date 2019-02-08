@@ -1,0 +1,285 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+TidyTuesday - Dolphins  
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+theme_set(theme_light())
+```
+
+```{r}
+cetaceans_raw <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-12-18/allCetaceanData.csv")
+
+# converted year to integer  to allow age calculation, if they are dead -> calculate age, else print NA (real is added because of the types, ended up a mess) 
+cetaceans <- cetaceans_raw %>%
+  select(-X1) %>%
+  mutate(birthYear = as.integer(birthYear),
+         age = if_else(status == "Died", year(statusDate) - birthYear, NA_real_))
+```
+
+```{r}
+View(cetaceans)
+```
+
+EDA
+```{r}
+cetaceans %>%
+  count(acquisition, sort = T)
+
+# there are outliers here
+cetaceans %>%
+  count(status, sort = T)
+
+# 693 NAvalues
+cetaceans %>%
+  count(birthYear, sort = T)
+
+# examine subset
+cetaceans %>%
+  filter(status=="Died") %>%
+  select(birthYear, statusDate) %>%
+  filter(!is.na(birthYear), !is.na(statusDate))
+
+# distribution of age
+library(lubridate)
+cetaceans %>%
+  filter(status=="Died") %>%
+  select(birthYear, statusDate) %>%
+  filter(!is.na(birthYear), !is.na(statusDate)) %>%
+  ggplot(aes(age)) +
+  geom_histogram()
+
+cetaceans %>%
+  filter(status=="Died") %>%
+  select(birthYear, statusDate) %>%
+  filter(!is.na(birthYear), !is.na(statusDate)) %>%
+  summarize(median(age))
+```
+
+```{r}
+cetaceans %>%
+  count(species, sort = T)
+
+# create other column, visualize, mostly Bottlenoses
+cetaceans %>%
+  count(species = fct_lump(species,5), sort = T) %>%
+  mutate(species = fct_reorder(species,n)) %>%
+  ggplot(aes(x=species, y=n)) +
+  geom_col() +
+  coord_flip()
+```
+
+```{r}
+# mix two EDA together, describe species by age, most look similar
+cetaceans %>%
+  mutate(species = fct_lump(species,5), sort = T) %>%
+  filter(!is.na(birthYear), !is.na(statusDate)) %>%
+  ggplot(aes(x=species, y=age)) +
+  geom_boxplot() +
+  coord_flip()
+```
+```{r}
+# learning more about where cetaceans are Born/Captured, captured stopped in 1992
+
+cetaceans %>%
+  count(acquisition, originLocation, sort= T) 
+
+cetaceans %>%
+  count(acquisition, originLocation, sort= T) %>%
+  filter(originLocation != "Unknown")
+
+cetaceans %>%
+  ggplot(aes(originDate, fill = acquisition)) +
+  geom_histogram()
+
+# upgrade the graph, spinogram is good, gaps were created so the complete function was needed, shows the share of acquisition type over years
+
+library(scales)
+cetaceans %>%
+  filter(originDate >= "1960-01-01") %>%
+  count(acquisition, decade = 5 * (year(originDate) %/% 5)) %>%
+  complete(acquisition, decade, fill = list(n=0)) %>%
+  group_by(decade) %>%
+  mutate(percent = n / sum(n)) %>%
+  ggplot(aes(decade, percent, fill = acquisition)) +
+  geom_area() +
+  scale_y_continuous(labels = percent_format()) +
+  theme_minimal() +
+  labs(x="year",
+       y="% of dolphins recorded")
+
+# animal law was added in 1986 whaling ban, hence the decline in dolphines captured
+cetaceans %>%
+  filter(originDate >= "1960-01-01") %>%
+  count(acquisition, decade = 5 * (year(originDate) %/% 5)) %>%
+  mutate(acquisition = fct_reorder(acquisition, n, sum)) %>%
+  complete(acquisition, decade, fill = list(n=0)) %>%
+  group_by(decade) %>%
+  mutate(percent = n / sum(n)) %>%
+  ggplot(aes(decade, percent, fill = acquisition)) +
+  geom_area() +
+  scale_fill_manual(values = c("#4E79A7","#E15759", "#F28E2B", "#76B7B2", "#59A14F", "#EDC948")) +
+  scale_y_continuous(labels = percent_format()) +
+  geom_vline(lty = 2, xintercept = 1986) +
+  theme_minimal() +
+  labs(x="year",
+       y="% of dolphins recorded",
+       title = "Share of Dolphin Acquisition Methods Since 1960",
+       subtitle = "In 1986, a Whaling Ban lead to the massive drop in captured dolphins.")
+```
+
+```{r}
+# lump some locations? SeaWorld, TX/Florida, Oceans
+cetaceans %>%
+  count(acquisition, originLocation, sort= T) %>%
+  filter(originLocation != "Unknown") 
+
+
+
+# fuzzyjoin is great for massive case_when
+library(fuzzyjoin)
+
+regexes <- tribble(
+  ~ regex, ~ category,
+  "Unknown", "Unknown",
+  "Gulf of Mexico", "Gulf of Mexico",
+  "Florida|FL", "Florida",
+  "Texas|TX", "Texas",
+  "SeaWorld", "SeaWorld",
+  "Pacific", "Pacific Ocean",
+  "Atlantic", "Atlantic Ocean"
+)
+
+# merging changes, coalesce is to replace NA values with the normal location, lumped some into 'other' category
+cetaceans_annotated <- cetaceans %>%
+  mutate(unique_id = row_number()) %>%
+  regex_left_join(regexes, c(originLocation = "regex")) %>%
+  distinct(unique_id, .keep_all = TRUE) %>%
+  mutate(category = coalesce(category, originLocation),
+         category = fct_lump(category,9))
+
+# same plot style as before
+cetaceans_annotated %>%
+  count(category, 
+        decade = 5 * (year(originDate) %/% 5)) %>%
+  complete(category, decade, fill = list(n = 0)) %>%
+  mutate(category = fct_reorder(category, n, sum)) %>%
+  group_by(decade) %>%
+  mutate(percent = n / sum(n)) %>%
+  ggplot(aes(decade, percent, fill = category)) +
+  geom_area() +
+  scale_y_continuous(labels = percent_format()) +
+  theme_minimal() +
+  labs(x="year",
+       title="Where Dolphins Born in Captivity Were From")
+```
+
+```{r}
+# same plot style as before
+cetaceans_annotated %>%
+  filter(acquisition == "Born",
+         originDate >= "1980-01-01") %>%
+  count(category, 
+        decade = 5 * (year(originDate) %/% 5)) %>%
+  complete(category, decade, fill = list(n = 0)) %>%
+  mutate(category = fct_lump(category, 7),
+         category = fct_reorder(category, n, sum)) %>%
+  group_by(decade) %>%
+  mutate(percent = n / sum(n)) %>%
+  ggplot(aes(decade, percent, fill = category)) +
+  geom_area() +
+  scale_y_continuous(labels = percent_format()) +
+  theme_minimal() +
+  labs(x="year",
+       title="Where Dolphins Born in Captivity Were From")
+
+cetaceans_annotated %>%
+  filter(acquisition == "Capture") %>%
+    mutate(category = fct_lump(category, 4),
+         category = fct_reorder(category, category, length)) %>%
+  ggplot(aes(originDate, fill = category)) +
+  geom_histogram()
+```
+### Survival Analysis
+```{r}
+library(survival)
+
+# require some data prep
+dolphin_survival <- cetaceans %>%
+  filter(status %in% c("Alive", "Died")) %>%
+  mutate(deathYear = ifelse(status == "Alive", 2017, year(statusDate)),
+         status = ifelse(status == "Alive", 0, 1),
+         age = deathYear - birthYear) %>%
+  filter(!is.na(deathYear)) %>%
+  select(birthYear,deathYear, status, sex, age, acquisition, species) %>%
+  filter(deathYear >= birthYear) %>%
+  filter(sex != "U")
+
+model <- survfit(Surv(age, status) ~ 1, dolphin_survival)
+
+library(broom)
+
+tidy(model) %>%
+  ggplot(aes(x=time, y=estimate)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=conf.low, ymax = conf.high), alpha=.2) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(y = "Estimated % of Survival",
+       x = "Time (in years)")
+
+# can live as long as 55 years old
+
+survfit(Surv(age, status) ~ 1, dolphin_survival)
+# median believes 17 is median age and confidence
+```
+
+```{r}
+# do it by gender
+model <- survfit(Surv(age, status) ~ sex, dolphin_survival)
+
+tidy(model) %>%
+  ggplot(aes(x=time, y=estimate, colour = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=conf.low, ymax = conf.high), alpha=.2) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(y = "Estimated % of Survival")
+
+survfit(Surv(age, status) ~ sex, dolphin_survival)
+
+# seems close, is there a significant difference?
+coxph(Surv(age, status) ~ sex, dolphin_survival)
+
+
+coxph(Surv(age, status) ~ sex, dolphin_survival) %>%
+  tidy()
+# riskier to be male (need to research coefficients), but p-value is not significant
+```
+
+```{r}
+model <- survfit(Surv(age, status) ~ acquisition, dolphin_survival)
+
+tidy(model) %>%
+  filter(strata != "acquisition=Unknown") %>%
+  ggplot(aes(x=time, y=estimate, colour = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin=conf.low, ymax = conf.high), alpha=.2) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(y = "Estimated % of Survival")
+
+# issue here, if we capture, they already are alive, we can only the observed dolphins die, rescued dolphins have the lowest rate of survival, the born seems to be the most realistic graph
+
+survfit(Surv(age, status) ~ acquisition, dolphin_survival)
+
+# seems close, is there a significant difference?
+coxph(Surv(age, status) ~ acquisition, dolphin_survival)
+
+
+coxph(Surv(age, status) ~ acquisition, dolphin_survival) %>%
+  tidy()
+# riskier to be rescued
+```
