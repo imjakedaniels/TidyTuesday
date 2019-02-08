@@ -1,0 +1,442 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(lubridate)
+library(ggthemes)
+theme_set(theme_light())
+
+# dropping vehicles (duplicate), adding 2000 to the year so it is up to date, making categories for responsibility based on popular 4 then lumping rest, turns out there's Baltimore City and Baltimore city and fixing it,
+maryland_bridges <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2018/2018-11-27/baltimore_bridges.csv") %>% select(-vehicles) %>%
+  mutate(inspection_yr = inspection_yr + 2000,
+  decade = 10 * (yr_built %/% 10),
+  responsibility = fct_lump(responsibility,4),
+  county = str_to_title(county))
+```
+
+```{r}
+glimpse(maryland_bridges)
+```
+
+```{r}
+# finding duplicates?
+maryland_bridges %>%
+  count(lat,long,avg_daily_traffic, sort=T)
+```
+
+```{r}
+# counting the grouping varaibles
+maryland_bridges %>%
+  count(bridge_condition, sort= T)
+
+# basic time series
+maryland_bridges %>%
+  filter(yr_built >= 1900) %>%
+  count(yr_built, sort= T) %>%
+  ggplot(aes(x=yr_built,y=n)) +
+  geom_line() 
+
+# truncating by decade
+maryland_bridges %>%
+  filter(yr_built >= 1900) %>%
+  count(decade, sort= T) %>%
+  ggplot(aes(x=decade,y=n)) +
+  geom_line() +
+  expand_limits(y=0) +
+  labs(y= '# of bridges built in maryland this decade')
+```
+How does the condition of bridges depend on when it was built?
+
+```{r}
+# first look, need to add filter
+maryland_bridges %>%
+  group_by(decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n())
+
+library(scales)
+maryland_bridges %>%
+  filter(yr_built >= 1900) %>%
+  group_by(decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) %>%
+  ggplot(aes(decade, pct_good)) +
+  geom_line() +
+  scale_y_continuous(labels = percent_format()) +
+  expand_limits(y=0)
+```
+Most bridges built before 1970, we woud not consider in "good" condition (although it doesnt matter how long before 1970 they were built), while a  majority of bridges  built since 2000 are in Good condition.
+
+
+# are both these columns the same or which should we choose?
+```{r}
+# usually the same, responsibility is better
+maryland_bridges %>%
+  count(owner, responsibility, sort =T)
+
+# see which don't match
+maryland_bridges %>%
+  filter(owner != responsibility) %>%
+  count(owner, responsibility, sort =T)
+
+# fix na and select 4 most popular, in order
+maryland_bridges %>%
+  replace_na(list(responsibility = "Other")) %>%
+  count(responsibility, sort =T) %>%
+  mutate(responsibility = fct_reorder(responsibility,n)) %>%
+  ggplot(aes(responsibility,n)) +
+  geom_col() +
+  coord_flip()
+
+
+```
+
+```{r}
+#looking at agencies and who built successful bridges
+maryland_bridges %>%
+  filter(yr_built >=1900) %>%
+  replace_na(list(responsibility = "Other")) %>%
+  group_by(responsibility,
+        decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) 
+
+
+maryland_bridges %>%
+  filter(yr_built >=1900) %>%
+  replace_na(list(responsibility = "Other")) %>%
+  group_by(responsibility,
+        decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) %>%
+  filter(responsibility != "Other") %>%
+  ggplot(aes(decade,pct_good, color = responsibility)) +
+  geom_line(size = 1) +
+  
+  scale_y_continuous(labels = percent_format()) +
+  scale_color_manual(values = c("#4E79A7","#E15759", "#F28E2B", "#76B7B2")) +
+  expand_limits(y=0) +
+    annotate("text", x=1940, y= 0.73, label = "County High Agency made best bridges pre-1970", color = "black") +
+  annotate("text", x=1940, y= 0.68, label = "State Toll Authority had drop in bridge quality in 1990s", color = "black") +
+  labs(title = 'History of Good Quality Bridges in Maryland by Responsibility', y="% of bridges rated 'Good'")
+```
+County High Agency starts better than most before 1970
+State Toll Authority has bad bridges in 1990s
+
+# avg_daily_traffic
+```{r}
+# first look, has a bad distribution, 
+maryland_bridges %>%
+  ggplot(aes(x=avg_daily_traffic)) +
+  geom_histogram()
+
+# switch to log scale, makes decent categoies 100-1000, 1000-10000 etc..
+maryland_bridges %>%
+  ggplot(aes(x=avg_daily_traffic)) +
+  geom_histogram() +
+  scale_x_log10(labels = comma_format())
+```
+
+```{r}
+# see perecent of good by categories, not too much different
+maryland_bridges %>%
+  filter(yr_built >= 1990) %>%
+  group_by(traffic_category = cut(avg_daily_traffic, c(0,1000,10000, Inf),labels = c("<1000", "1000-10,000", "10,000+"))) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) 
+
+# looking at older bridges
+maryland_bridges %>%
+  filter(yr_built < 1990) %>%
+  group_by(traffic_category = cut(avg_daily_traffic, c(0,1000,10000, Inf),labels = c("<1000", "1000-10,000", "10,000+"))) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n())
+```
+# make a map
+```{r}
+library(mapproj)
+library(maps)
+
+maryland_bridges %>%
+  ggplot(aes(x=long,y=lat, colour = avg_daily_traffic)) +
+  borders("state", regions = "Maryland", fill = "grey90") +
+  geom_point(size = 2, shape = 15, alpha = 0.6) +
+  scale_colour_gradient2(low = "blue",
+                         high = "red",
+                         midpoint = log10(1000),
+                         trans = "log10",
+                         labels=comma_format()) +
+  coord_map() +
+  theme_void() +
+  ggtitle("     Heat-Map of Traffic Volume in Maryland")
+
+
+maryland_bridges %>%
+  ggplot(aes(x=long,y=lat, colour = county)) +
+  borders("state", regions = "Maryland", fill = "grey90") +
+  geom_point(size = 3) +
+  geom_point(data = maryland_bridges %>%
+               filter(bridge_condition == "Poor"), aes(x=long,y=lat), colour = "red", shape = 15, alpha = 0.6) +
+  scale_colour_manual(values = c("#6388b4", "#baa094", "#ffae34", "#8cc2ca", "#55ad89", "#c3bc3f", "red", "#baa094", "#a9b5ae", "#767676")) +
+  coord_map() +
+  theme_void() +
+  ggtitle("     Counties with Poor Quality Bridges")
+
+
+maryland_bridges %>%
+  filter(yr_built > 1900) %>%
+  ggplot(aes(x=long,y=lat, colour = yr_built)) +
+  borders("state", regions = "Maryland", fill = "grey90") +
+  geom_point(size = 3) +
+  scale_colour_gradient2(low = "grey95", high = "#E15759", midpoint = 1930, labels=comma_format()) +
+  coord_map() +
+  theme_void() +
+  ggtitle("     Circa for Bridge Completion")
+```
+
+```{r}
+
+```
+```{r}
+maryland_bridges %>%
+  filter(yr_built >=1900) %>%
+  group_by(county,
+        decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) %>%
+  arrange(county, decade)
+
+# hard to conclude much
+maryland_bridges %>%
+  filter(yr_built >=1900) %>%
+  group_by(county,
+        decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) %>%
+  arrange(county, decade) %>%
+  ggplot(aes(decade,pct_good, color = county)) +
+  geom_line(size = 1) +
+  hrbrthemes::theme_modern_rc() +
+  scale_y_continuous(labels = percent_format()) +
+  scale_color_manual(values =  c("#6388b4", "#ef6f6a", "#ffae34", "#8cc2ca", "#55ad89", "#c3bc3f")) +
+  expand_limits(y=0) +
+  labs(title = 'History of Good Quality Bridges in Maryland by County', y="% of bridges rated 'Good'") +
+  annotate("text", x=1940, y=0.75, label = "Anne Arundel County had significant faults in \ntheir bridges just before 2000", colour = "#6388b4", fontface = "bold")
+```
+```{r}
+# look at Information Value on these variables
+library(Information)
+
+IV <- maryland_bridges %>%
+  mutate(good = bridge_condition == "Good",
+         good = ifelse(good == TRUE, 1, 0))
+
+IV <- create_infotables(data = IV, y = "good")
+
+# Print Information Value 
+info_vars <- as.data.frame(IV$Summary) %>%
+  mutate(Variable = fct_reorder(Variable, IV, .fun = sum, .desc = F))
+
+ggplot(info_vars, aes(x=Variable, y=IV)) +
+  geom_col() +
+  coord_flip() + 
+  labs(title = "Information Gain - Feature Weights",
+       subtitle = "Finding strongest features to determine if a bridge condition is good or not.",
+       x = "",
+       y = "Information Value") +
+   hrbrthemes::theme_modern_rc() + 
+  theme(
+    panel.grid.minor = element_blank()
+  ) 
+```
+
+
+### Effect of county, traffic, and responsibility and time on bridge condition
+```{r}
+maryland_bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ yr_built, data = .) %>%
+  summary()
+
+# show the lm fit, it's bad
+maryland_bridges %>%
+  filter(yr_built >= 1900) %>%
+  group_by(decade) %>%
+  summarize(pct_good = mean(bridge_condition == "Good"),
+            total = n()) %>%
+  ggplot(aes(decade, pct_good)) +
+  geom_line(data = augment(model, maryland_bridges, type.predict = "response"), aes(yr_built, .fitted), colour = "green") + 
+  geom_point(colour= "black", size=2) +
+  geom_line(data = augment(model4, bridges, type.predict = "response"), aes(yr_built, .fitted), colour = "blue") +
+  scale_y_continuous(labels = percent_format()) +
+  expand_limits(y=0) +
+  xlim(xmin=1900,xmax=2020) +
+  ggtitle("Comparing Cubic Spline Model (Blue) to Logistic Regression (Green)")
+```
+```{r}
+# make it 1/0 and logistic (T/F)
+model <- maryland_bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ yr_built, data = ., family = "binomial")
+library(broom)
+
+# look at how this one fits, LOOKS GOOD!
+augment(model, maryland_bridges, type.predict = "response") %>%
+  ggplot(aes(yr_built, .fitted)) +
+  geom_line()
+```
+
+```{r}
+# CUBIC SPLINE - changing a linear model to handle non-linear relationships
+# GO TO NONLINEAR MODELING IN R WITH GAMS
+library(splines)
+?ns
+
+
+bridges <- maryland_bridges %>%
+  filter(yr_built >= 1900)
+
+# giving 2 degrees of freedom to fit model
+model2 <- bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ ns(yr_built, 2), data = ., family = "binomial")
+
+model3 <- bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ ns(yr_built, 3), data = ., family = "binomial")
+
+model4 <- bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ ns(yr_built, 4), data = ., family = "binomial")
+
+
+
+augment(model2, bridges, type.predict = "response") %>%
+  ggplot(aes(yr_built, .fitted)) +
+  geom_line() +
+  expand_limits(y=0)
+
+augment(model3, bridges, type.predict = "response") %>%
+  ggplot(aes(yr_built, .fitted)) +
+  geom_line() +
+  expand_limits(y=0)
+
+# this one looks the best to the data
+augment(model4, bridges, type.predict = "response") %>%
+  ggplot(aes(yr_built, .fitted)) +
+  geom_line() +
+  expand_limits(y=0)
+```
+
+```{r}
+# add a new variable
+bridges<- bridges %>%
+mutate(good = bridge_condition == "Good") %>%
+drop_na(responsibility)
+
+model4 <- glm(good ~ ns(yr_built, 4) + responsibility, data = bridges, family = "binomial")
+
+augment(model4, bridges, type.predict = "response") %>%
+  ggplot(aes(yr_built, .fitted, colour = responsibility)) +
+  geom_line() +
+  expand_limits(y=0) +
+labs(y="Predicted probabilty bridge is rated 'Good") +
+  scale_y_continuous(labels = percent_format())
+
+# county highway agency is best to be good, but most uninterpretable
+summary(model4)
+```
+```{r}
+# display all the predictions
+
+model4 <- bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ ns(yr_built, 4) + responsibility + county, data = ., family = "binomial")
+
+# Carroll looks good? but can see the seperation of responsibility
+augment(model4, bridges, type.predict = "response") %>%
+  ggplot(aes(yr_built, .fitted, colour = responsibility)) +
+  geom_line() +
+  expand_limits(y=0) +
+  facet_wrap(~ county) +
+labs(y="Predicted probabilty bridge is rated 'Good") +
+  scale_y_continuous(labels = percent_format())
+```
+Controlled for the overall trend in change over timem what's the effect of being in a particular county or responsibility?
+
+```{r}
+model4 %>%
+  tidy()
+
+# see influences!
+model4 %>%
+  tidy() %>%
+  filter(str_detect(term, "responsibility|county")) %>%
+  mutate(term = reorder(term, estimate)) %>%
+  ggplot(aes(x=estimate, y= term)) +
+  geom_point()
+
+# show the break of positive negative
+model4 %>%
+  tidy() %>%
+  filter(str_detect(term, "responsibility|county")) %>%
+  mutate(term = reorder(term, estimate)) %>%
+  ggplot(aes(x=estimate, y= term)) +
+  geom_point() +
+  geom_vline(xintercept = 0, color = "red", lty = 2)
+
+
+# add confidence intervals so we can show error bars
+# looking at log-odds: how much does it change the odds you are rated as good
+# trends may not be true, need to know the p-values if they are significant
+# if we look at the 95% confidence intervals overlapping 0, it shows things are insignificant
+model4 %>%
+  tidy(conf.int = TRUE) %>%
+  filter(str_detect(term, "responsibility|county")) %>%
+  mutate(term = reorder(term, estimate)) %>%
+  ggplot(aes(x=estimate, y=term)) +
+  geom_point(size=3) +
+  geom_errorbarh(aes(xmin= conf.low, xmax =conf.high)) +
+  geom_vline(xintercept = 0, color = "red", lty = 2) +
+  labs(title = "County Impact on Bridge Being \"Good\" Condition", 
+       y="")
+```
+No evidence of an effect of greography or ownership on bridge condition once we control for time.
+
+```{r}
+#multicolinearity
+library(car)
+vif(model4) # variance inflation factor, remove 1 at a time and re-run
+```
+
+Step 1: Calculate VIF of the model
+Step 2: Identify if any variable has VIF greater than or equal to 5
+Step 2a: Remove the variable from the model if it has a VIF greater than or equal to 5
+Step 2b: If there are multiple variables with VIF greater than 5, only remove the variable with the highest VIF
+Step 3: Repeat steps 1 and 2 until VIF of all variables is less than 5
+```{r}
+# non-linear model given cubic spline tp better fit data
+model4 <- bridges %>%
+  mutate(good = bridge_condition == "Good") %>%
+  glm(good ~ ns(yr_built, 4) + responsibility + county, data = ., family = "binomial")
+
+# predictions
+predictions<- augment(model4, bridges, type.predict = "response") %>%
+  select(.fitted) %>%
+  mutate(good = ifelse(.fitted > 0.5, TRUE, FALSE))
+
+# results
+conf_matrix <-table(predictions$good, bridges$good)
+caret::confusionMatrix(conf_matrix)
+```
+Model has 82.5% accuracy
