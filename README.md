@@ -33,8 +33,6 @@ library(showtext)
 
 ![Poor Quality](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2035%20-%20Maryland%20Bridges/poor_quality_marked.png?raw=TRUE)
 
-![Completion Time](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2035%20-%20Maryland%20Bridges/circa_bridge_completion.png?raw=TRUE)
-
 ![Good Bridges](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2035%20-%20Maryland%20Bridges/good_bridges_by_county.png?raw=TRUE)
 
 ![Info Gain](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2035%20-%20Maryland%20Bridges/information_gain_good.png?raw=TRUE)
@@ -47,4 +45,9 @@ library(showtext)
 ![Friends With Paws](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2024%20-%20Cats/friends_with_paws.png?raw=TRUE)
 
 ![Disparity](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2024%20-%20Cats/disparity_by_species.PNG?raw=TRUE)
+
+## Week 1 - 2019: #Tidytuesday
+Using term-frequency and inverse-document-frequency (TF IDF) to predict the theme of the #tidytuesday tweets that week
+
+![Predicting Weekly Topics](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2001%202019%20-%20Tweets/week_prediction_graph.png?raw=TRUE)
 
