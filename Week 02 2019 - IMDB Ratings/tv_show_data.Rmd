@@ -191,7 +191,14 @@ by_year <- tv_ratings %>%
 by_year %>%
   gather(metric, value, -year, -observations, -avg_season, -sd) %>%
   ggplot(aes(year,value,color = metric)) +
-  geom_line()
+  geom_point(alpha=0.5, size=0.5) +
+  geom_line(alpha=0.5) +
+  geom_smooth(alpha = 0.2,se = F) +
+  labs(title="Overall TV Show Quality over Time",
+       subtitle = "Shows ratings have improved, but not because of Season 1",
+       y="Rating",
+       x= "Year") +
+  scale_x_continuous(breaks = seq(1990,2020,by=5))
 
 # add 4 levels to the year of seasons so we can see which does better over time
 tv_ratings %>%
@@ -200,8 +207,12 @@ tv_ratings %>%
   summarize(mean_rating = mean(av_rating),
             observations = n()) %>%
   ggplot(aes(year, mean_rating, color = seasonNumber)) +
-  geom_line() +
-  labs(color = "Season",
+geom_point(alpha=0.5, size=0.5) +
+  geom_line(alpha=0.5) +
+  geom_smooth(method = "lm",se = F) +
+  labs(title = "TV Show Seasons Over Time",
+       subtitle = "Shows lasting more than 1 season will likely have a better rating",
+       color = "Season",
        y = "Average rating each 5 year period")
 ```
 season 1 are the same, but 2-4 are getting better.
@@ -249,6 +260,7 @@ first_three_seasons %>%
   expand_limits(y=c(0,1))
 
 # differences in pre/post-2000, season 1 isn't getting better, but we are getting better at knowing which shows ARE good shows to renew.
+
 first_three_seasons %>%
   group_by(season1_bin = cut(season1, c(0,7,7.5,8,8.5,10)),
            time_bin = ifelse(date_first_season < "2000-01-01", "Before 2000", "After 2000")) %>%
@@ -258,7 +270,15 @@ first_three_seasons %>%
   geom_line() +
   geom_point() +
   scale_y_continuous(labels = scales::percent_format()) +
-  expand_limits(y=c(0,1))
+  scale_x_discrete(labels = c("0-7","7-7.5","7.5-8","8-8.5","8.5-10")) +
+  expand_limits(y=c(0,1)) +
+  labs(title = "Binned Ratings Segmented by Time",
+       subtitle = "Shows given 2nd Season in relation to 1st Season Rating",
+       color = "Time Range",
+       y="Shows with 2nd Season",
+       x= "Rating Bins for Season 1") +
+  annotate("text", x=4, y=0.85, size = 3,label = "Lots of well-received shows \ndid not get another season before 2000") +
+  annotate("text", x=4, y=0.15, size = 3,label = "Producers now have more information & feedback \nto identify quality television shows")
 ```
 Whether a show gets a second season depends on the ratings of the first season
 ```{r}
@@ -294,10 +314,11 @@ augment(newdata = new_data, type.predict = "response") %>%
   ggplot(aes(year, .fitted, color = factor(season1))) +
   geom_line() +
   scale_y_continuous(labels = scales::percent_format()) +
-  labs(title = "Probability of getting season 2 has become more dependent on ratings of season 1",
+  labs(title = "Probability of Season 2 Over Time by Season 1 Rating",
+       subtitle = "Season 2 has become more dependent on ratings of season 1; \nTV has improved their show evaluations for renewal",
        color = "Season1 Rating",
-       x= "year show premiered",
-       y = "Predicted probability of getting season 2")
+       x= "Year Show Premiered",
+       y = "Predicted Probability of Getting Season 2")
 ```
 
 ```{r}

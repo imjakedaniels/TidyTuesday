@@ -51,3 +51,11 @@ Using term-frequency and inverse-document-frequency (TF IDF) to predict the them
 
 ![Predicting Weekly Topics](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2001%202019%20-%20Tweets/week_prediction_graph.png?raw=TRUE)
 
+## Week 2 - 2019: IMDB Ratings
+![TV Show Quality Over Time](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2002%202019%20-%20IMDB%20Ratings/overall_show_quality.png?raw=TRUE)
+
+![TV Show Season Quality Over Time](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2002%202019%20-%20IMDB%20Ratings/by_season_show_quality.png?raw=TRUE)
+
+![Binned Ratings by Century](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2002%202019%20-%20IMDB%20Ratings/Ratings_segments.png?raw=TRUE)
+
+![Probability of Season2 by season1 * year](https://github.com/imjakedaniels/TidyTuesday/blob/master/Week%2002%202019%20-%20IMDB%20Ratings/probability_season_2.png?raw=TRUE)
